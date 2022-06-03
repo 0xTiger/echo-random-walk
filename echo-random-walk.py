@@ -1,26 +1,29 @@
-import os
 import time
 import random
 import curses
 import argparse
+import logging
 
 from typing import List
 from pathlib import Path
 from itertools import chain
 
 parser = argparse.ArgumentParser()
-text_source_group = parser.add_mutually_exclusive_group(required=True)
-text_source_group.add_argument('--file')
-text_source_group.add_argument('--dir')
+parser.add_argument('path', 
+    help='path of file or directory containing text to display')
+parser.add_argument('--log', action='store_true',
+    help='enables logging')
+parser.add_argument('--speed', default=1000, 
+    help='set the display speed in characters per second')
 args = parser.parse_args()
 
-import logging
-logging.basicConfig(
-    filename='curses.log',
-    filemode='w',
-    format='%(asctime)s %(message)s',
-    level=logging.INFO
-)
+
+fh = logging.FileHandler(filename='echo-random-walk.log', mode='w', delay=True)
+fh.setFormatter(logging.Formatter('%(asctime)s %(message)s'))
+fh.setLevel(logging.INFO)
+logger = logging.Logger(__file__)
+logger.addHandler(fh)
+logger.disabled = not args.log
 
 def weighted_choice(pdf: List):
     r = random.random()
@@ -30,11 +33,13 @@ def weighted_choice(pdf: List):
         if r < cum: return i
     return None
 
+
 def text_source():
-    files = [args.file] if args.file else Path(args.dir).rglob('*')
-    files = (file for file in files if not os.path.isdir(file))
-    for file in files:
-        with open(file, 'r') as f:
+    source_path = Path(args.path)
+    paths = [source_path] if source_path.is_file() else source_path.rglob('*')
+    paths = (path for path in paths if path.is_file())
+    for path in paths:
+        with open(path, 'r') as f:
             try:
                 for c in chain.from_iterable(f):
                     if c not in '\t\0':
@@ -61,19 +66,16 @@ def main(stdscr):
         if char == '\n':
             char = ' '
             c += 1
-        logging.debug(f'{x},{y}, {x % max_x}, {y % max_y}, {char}')
+        logger.debug(f'{x},{y}, {x % max_x}, {y % max_y}, {char}')
         stdscr.addch(y % max_y, x % max_x, char, curses.color_pair(c % 9))
         stdscr.refresh()
-        # c += random.random() < 0.05
         y += [-1, 0, 1][weighted_choice([0.05, 0.9, 0.05])]
-        time.sleep(0.001)
+        time.sleep(1 / args.speed)
 
-    logging.info('done')
+    logger.debug('done')
     while True:
-        logging.info('doner')
         if stdscr.getch() == ord('q'):
             return
         time.sleep(0.1)
-    logging.info('proper_done')
 
 curses.wrapper(main)
