@@ -1,8 +1,9 @@
-import curses
-import random
+import os
 import time
+import random
+import curses
 import argparse
-from itertools import count
+
 from typing import List
 from pathlib import Path
 from itertools import chain
@@ -18,7 +19,7 @@ logging.basicConfig(
     filename='curses.log',
     filemode='w',
     format='%(asctime)s %(message)s',
-    level=logging.DEBUG
+    level=logging.INFO
 )
 
 def inc(r: float, pdf: List):
@@ -28,18 +29,20 @@ def inc(r: float, pdf: List):
         if r < cum: return i
     return None
 
-def text_iter():
+def text_source():
     files = [args.file] if args.file else Path(args.dir).rglob('*')
+    files = (file for file in files if not os.path.isdir(file))
     for file in files:
         with open(file, 'r') as f:
-            for c in chain.from_iterable(f):
-                if c != '\n':
-                    yield c
+            try:
+                for c in chain.from_iterable(f):
+                    if c != '\n':
+                        yield c
+            except UnicodeDecodeError:
+                continue
 
 
 def main(stdscr):
-    # with open(args.file, 'r') as f:
-    text_source = text_iter()
     stdscr.clear()
     stdscr.nodelay(True)
     curses.curs_set(0)
@@ -49,10 +52,9 @@ def main(stdscr):
     curses.init_pair(1, curses.COLOR_RED, -1)
     curses.init_pair(2, curses.COLOR_BLUE, -1)
     curses.init_pair(3, curses.COLOR_CYAN, -1)
-    for x in count():
+    for x, char in enumerate(text_source()):
         if y % max_y == max_y - 1 and x % max_x == max_x - 1:
-            continue
-        char = next(text_source)
+            y -= 1
         if stdscr.getch() == ord('q'):
             return
         logging.debug(f'{x},{y}, {x % max_x}, {y % max_y}, {char}')
