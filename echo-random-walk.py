@@ -13,7 +13,7 @@ parser.add_argument('path',
     help='path of file or directory containing text to display')
 parser.add_argument('--log', action='store_true',
     help='enables logging')
-parser.add_argument('--speed', default=1000, 
+parser.add_argument('--speed', default=500, type=int, 
     help='set the display speed in characters per second')
 args = parser.parse_args()
 
